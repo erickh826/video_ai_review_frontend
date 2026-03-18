@@ -1,60 +1,48 @@
-import express from "express";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import {
-  PresignUploadRequestSchema,
-  PresignDownloadRequestSchema,
-  TriggerAnalysisRequestSchema,
-} from "../shared/schema";
 
-const app = express();
-app.use(express.json());
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
-// ─── Auth middleware ──────────────────────────────────────────────────────────
-
-function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+function checkAuth(req: VercelRequest, res: VercelResponse): boolean {
   const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) return next(); // dev: no token configured = allow all
-  const auth = req.headers["authorization"] ?? "";
+  if (!adminToken) return true; // dev: no token = allow all
+  const auth = (req.headers["authorization"] as string) ?? "";
   if (auth !== `Bearer ${adminToken}`) {
     res.status(401).json({ error: "Unauthorized" });
-    return;
+    return false;
   }
-  next();
+  return true;
 }
 
 // ─── AWS helpers ──────────────────────────────────────────────────────────────
 
-async function getS3Client() {
+function awsCredentials() {
+  if (!process.env.AWS_ACCESS_KEY_ID) return undefined;
+  return {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  };
+}
+
+async function s3Client() {
   const { S3Client } = await import("@aws-sdk/client-s3");
   return new S3Client({
     region: process.env.AWS_REGION || "us-east-1",
-    credentials: process.env.AWS_ACCESS_KEY_ID
-      ? {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        }
-      : undefined,
+    credentials: awsCredentials(),
   });
 }
 
-async function getSQSClient() {
+async function sqsClient() {
   const { SQSClient } = await import("@aws-sdk/client-sqs");
   return new SQSClient({
     region: process.env.AWS_REGION || "us-east-1",
-    credentials: process.env.AWS_ACCESS_KEY_ID
-      ? {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        }
-      : undefined,
+    credentials: awsCredentials(),
   });
 }
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── Route handlers ───────────────────────────────────────────────────────────
 
-// GET /api/health
-app.get("/api/health", (_req, res) => {
-  res.json({
+async function handleHealth(_req: VercelRequest, res: VercelResponse) {
+  res.status(200).json({
     ok: true,
     ts: new Date().toISOString(),
     env: {
@@ -66,74 +54,62 @@ app.get("/api/health", (_req, res) => {
       ADMIN_TOKEN: !!process.env.ADMIN_TOKEN,
     },
   });
-});
+}
 
-// POST /api/presign-upload
-app.post("/api/presign-upload", requireAuth, async (req, res) => {
-  const parsed = PresignUploadRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
-  }
-  const { bucket, key, contentType } = parsed.data;
-  if (!key.startsWith("video-review/")) {
-    res.status(400).json({ error: "Key must start with video-review/" });
-    return;
+async function handlePresignUpload(req: VercelRequest, res: VercelResponse) {
+  const { bucket, key, contentType = "application/json" } = req.body ?? {};
+  if (!key || !key.startsWith("video-review/")) {
+    return res.status(400).json({ error: "key must start with video-review/" });
   }
   try {
     const { PutObjectCommand } = await import("@aws-sdk/client-s3");
     const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-    const s3 = await getS3Client();
-    const command = new PutObjectCommand({
-      Bucket: bucket || process.env.S3_BUCKET,
-      Key: key,
-      ContentType: contentType,
-    });
-    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
-    res.json({ uploadUrl, headers: { "Content-Type": contentType } });
+    const s3 = await s3Client();
+    const uploadUrl = await getSignedUrl(
+      s3,
+      new PutObjectCommand({
+        Bucket: bucket || process.env.S3_BUCKET,
+        Key: key,
+        ContentType: contentType,
+      }),
+      { expiresIn: 900 }
+    );
+    res.status(200).json({ uploadUrl, headers: { "Content-Type": contentType } });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to generate presigned URL" });
+    res.status(500).json({ error: err.message || "presign-upload failed" });
   }
-});
+}
 
-// POST /api/presign-download
-app.post("/api/presign-download", requireAuth, async (req, res) => {
-  const parsed = PresignDownloadRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
-  }
-  const { bucket, key } = parsed.data;
+async function handlePresignDownload(req: VercelRequest, res: VercelResponse) {
+  const { bucket, key } = req.body ?? {};
+  if (!key) return res.status(400).json({ error: "key is required" });
   try {
     const { GetObjectCommand } = await import("@aws-sdk/client-s3");
     const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-    const s3 = await getS3Client();
-    const command = new GetObjectCommand({
-      Bucket: bucket || process.env.S3_BUCKET,
-      Key: key,
-    });
-    const downloadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
-    res.json({ downloadUrl });
+    const s3 = await s3Client();
+    const downloadUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: bucket || process.env.S3_BUCKET,
+        Key: key,
+      }),
+      { expiresIn: 3600 }
+    );
+    res.status(200).json({ downloadUrl });
   } catch (err: any) {
-    if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
-      res.status(404).json({ error: "Object not found" });
-      return;
-    }
-    res.status(500).json({ error: err.message || "Failed to generate presigned URL" });
+    const status = err.$metadata?.httpStatusCode === 404 ? 404 : 500;
+    res.status(status).json({ error: err.message || "presign-download failed" });
   }
-});
+}
 
-// POST /api/trigger-analysis
-app.post("/api/trigger-analysis", requireAuth, async (req, res) => {
-  const parsed = TriggerAnalysisRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
+async function handleTriggerAnalysis(req: VercelRequest, res: VercelResponse) {
+  const { bucket, key } = req.body ?? {};
+  if (!key || !key.startsWith("video-review/")) {
+    return res.status(400).json({ error: "key must start with video-review/" });
   }
-  const { bucket, key } = parsed.data;
   try {
     const { SendMessageCommand } = await import("@aws-sdk/client-sqs");
-    const sqs = await getSQSClient();
+    const sqs = await sqsClient();
     const result = await sqs.send(
       new SendMessageCommand({
         QueueUrl: process.env.SQS_QUEUE_URL,
@@ -144,15 +120,51 @@ app.post("/api/trigger-analysis", requireAuth, async (req, res) => {
         }),
       })
     );
-    res.json({ ok: true, messageId: result.MessageId ?? "unknown" });
+    res.status(200).json({ ok: true, messageId: result.MessageId ?? "unknown" });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to send SQS message" });
+    res.status(500).json({ error: err.message || "trigger-analysis failed" });
   }
-});
+}
 
-// ─── Vercel handler ───────────────────────────────────────────────────────────
+// ─── Main router ──────────────────────────────────────────────────────────────
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  // Let Express handle the request
-  return app(req as any, res as any);
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
+  // Normalise path: strip query string and leading /api prefix
+  const rawPath = (req.url ?? "").split("?")[0];
+  const path = rawPath.replace(/^\/api/, "") || "/";
+
+  try {
+    // GET /api/health
+    if (req.method === "GET" && path === "/health") {
+      return await handleHealth(req, res);
+    }
+
+    // POST routes require auth
+    if (!checkAuth(req, res)) return;
+
+    if (req.method === "POST" && path === "/presign-upload") {
+      return await handlePresignUpload(req, res);
+    }
+    if (req.method === "POST" && path === "/presign-download") {
+      return await handlePresignDownload(req, res);
+    }
+    if (req.method === "POST" && path === "/trigger-analysis") {
+      return await handleTriggerAnalysis(req, res);
+    }
+
+    res.status(404).json({ error: `Route not found: ${req.method} ${rawPath}` });
+  } catch (err: any) {
+    console.error("[api/index]", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
 }
