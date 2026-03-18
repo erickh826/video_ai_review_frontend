@@ -17,7 +17,7 @@ import {
   TrendingDown,
   Minus,
 } from "lucide-react";
-import { type Analysis, editedAnalysisKey, formatTime } from "@shared/schema";
+import { type Analysis, editedAnalysisKey, rawAnalysisKey, formatTime } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_BUCKET = import.meta.env.VITE_S3_BUCKET || "";
@@ -36,10 +36,19 @@ export default function AnalysisView() {
   const analysisQuery = useQuery({
     queryKey: ["/api/presign-download", videoId, stem, "analysis"],
     queryFn: async () => {
-      const url = await presignDownload(bucket, editedAnalysisKey(videoId!, stem!));
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(res.status === 404 ? "Analysis not generated yet" : "Failed to fetch analysis");
-      return res.json() as Promise<Analysis>;
+      // Try edited first, then raw analysis
+      const candidates = [
+        editedAnalysisKey(videoId!, stem!),
+        rawAnalysisKey(videoId!, stem!),
+      ];
+      for (const key of candidates) {
+        try {
+          const url = await presignDownload(bucket, key);
+          const res = await fetch(url);
+          if (res.ok) return res.json() as Promise<Analysis>;
+        } catch { /* try next */ }
+      }
+      throw new Error("Analysis not generated yet");
     },
     enabled: !!videoId && !!stem && bucket !== "—",
     retry: false,

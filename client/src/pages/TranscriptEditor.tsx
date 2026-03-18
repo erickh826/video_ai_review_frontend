@@ -36,6 +36,7 @@ import {
   rawVideoKey,
   editedAnalysisKey,
   rawTranscriptKey,
+  rawAnalysisKey,
 } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -93,16 +94,19 @@ export default function TranscriptEditor() {
     queryKey: ["/api/presign-download", videoId, stem, "transcript"],
     queryFn: async () => {
       if (!bucket || !videoId || !stem) throw new Error("Missing params");
-      // Try edited first, fall back to raw
-      let url: string;
-      try {
-        url = await presignDownload(bucket, editedTranscriptKey(videoId, stem));
-      } catch {
-        url = await presignDownload(bucket, rawTranscriptKey(videoId, stem));
+      // Priority: edited → raw transcription.json
+      const candidates = [
+        editedTranscriptKey(videoId, stem),
+        rawTranscriptKey(videoId, stem),
+      ];
+      for (const key of candidates) {
+        try {
+          const url = await presignDownload(bucket, key);
+          const res = await fetch(url);
+          if (res.ok) return res.json() as Promise<Transcript>;
+        } catch { /* try next */ }
       }
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch transcript");
-      return res.json() as Promise<Transcript>;
+      throw new Error("Transcript not found in S3. Check bucket/videoId/stem.");
     },
     enabled: !!bucket && !!videoId && !!stem,
     retry: false,
@@ -113,8 +117,17 @@ export default function TranscriptEditor() {
     queryKey: ["/api/presign-download", videoId, stem, "video"],
     queryFn: async () => {
       if (!bucket || !videoId || !stem) throw new Error("Missing params");
-      const url = await presignDownload(bucket, rawVideoKey(videoId, stem));
-      return url;
+      // Try <stem>.mp4 and <videoId>.mp4 under raw/
+      const candidates = [
+        rawVideoKey(videoId, stem),
+        `video-review/${videoId}/raw/${videoId}.mp4`,
+      ];
+      for (const key of candidates) {
+        try {
+          return await presignDownload(bucket, key);
+        } catch { /* try next */ }
+      }
+      throw new Error("Video not found in S3");
     },
     enabled: !!bucket && !!videoId && !!stem,
     retry: false,

@@ -93,20 +93,30 @@ export function isSuspect(phrase: Phrase): boolean {
 
 /** Build S3 key for edited transcript */
 export function editedTranscriptKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.transcript.edited.json`;
+  return `video-review/${videoId}/ai/${stem}.transcription.edited.json`;
 }
 
 /** Build S3 key for raw transcript */
 export function rawTranscriptKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.transcript.json`;
+  return `video-review/${videoId}/ai/${stem}.transcription.json`;
+}
+
+/** Build S3 key for raw transcript (txt fallback) */
+export function rawTranscriptTxtKey(videoId: string, stem: string): string {
+  return `video-review/${videoId}/ai/${stem}.transcription.txt`;
+}
+
+/** Build S3 key for analysis */
+export function rawAnalysisKey(videoId: string, stem: string): string {
+  return `video-review/${videoId}/ai/${stem}.anslysis.json`;
 }
 
 /** Build S3 key for analysis (edited) */
 export function editedAnalysisKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.analysis.edited.json`;
+  return `video-review/${videoId}/ai/${stem}.anslysis.edited.json`;
 }
 
-/** Build S3 key for raw video */
+/** Build S3 key for raw video — tries <stem>.mp4 under raw/ */
 export function rawVideoKey(videoId: string, stem: string): string {
   return `video-review/${videoId}/raw/${stem}.mp4`;
 }
