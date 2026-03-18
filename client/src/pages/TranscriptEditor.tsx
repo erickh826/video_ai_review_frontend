@@ -509,13 +509,28 @@ export default function TranscriptEditor() {
                     }}
                   />
 
-                  {/* Text */}
-                  <p className="flex-1 text-sm leading-relaxed text-foreground">
-                    {phrase.text}
+                  {/* Text — click row to play, double-click text to edit */}
+                  <div className="flex-1 flex items-start gap-1 min-w-0">
+                    <textarea
+                      value={phrase.text}
+                      rows={Math.max(1, Math.ceil(phrase.text.length / 60))}
+                      data-testid={`textarea-phrase-${phrase.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const val = e.target.value;
+                        setPhrases((prev) => {
+                          const next = [...prev];
+                          next[realIdx] = { ...next[realIdx], text: val };
+                          return next;
+                        });
+                      }}
+                      className="flex-1 w-full text-sm leading-relaxed bg-transparent border-0 outline-none resize-none focus:bg-muted/40 focus:ring-1 focus:ring-ring rounded px-1 -mx-1 text-foreground transition-colors"
+                    />
                     {suspect && (
-                      <AlertTriangle className="inline h-3 w-3 ml-1.5 text-destructive/60 align-middle" />
+                      <AlertTriangle className="shrink-0 h-3 w-3 mt-1 text-destructive/60" />
                     )}
-                  </p>
+                  </div>
 
                   {/* Time */}
                   <span className="time-label">{formatTime(phrase.offset_ms)}</span>
