@@ -107,6 +107,12 @@ async function handleTriggerAnalysis(req: VercelRequest, res: VercelResponse) {
   if (!key || !key.startsWith("video-review/")) {
     return res.status(400).json({ error: "key must start with video-review/" });
   }
+  // Derive video_id from key: "video-review/<video_id>/ai/<stem>.transcript.edited.json"
+  const keyParts = key.split("/");
+  const video_id = keyParts[1]; // e.g. "ep01"
+  if (!video_id) {
+    return res.status(400).json({ error: "Cannot parse video_id from key" });
+  }
   try {
     const { SendMessageCommand } = await import("@aws-sdk/client-sqs");
     const sqs = await sqsClient();
@@ -116,7 +122,8 @@ async function handleTriggerAnalysis(req: VercelRequest, res: VercelResponse) {
         MessageBody: JSON.stringify({
           kind: "analysis_only",
           bucket: bucket || process.env.S3_BUCKET,
-          key,
+          video_id,
+          transcript_s3_key: key,
         }),
       })
     );
