@@ -93,17 +93,17 @@ export function isSuspect(phrase: Phrase): boolean {
 
 /** Build S3 key for edited transcript */
 export function editedTranscriptKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.transcription.edited.json`;
+  return `video-review/${videoId}/ai/${stem}.transcript.edited.json`;
 }
 
 /** Build S3 key for raw transcript */
 export function rawTranscriptKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.transcription.json`;
+  return `video-review/${videoId}/ai/${stem}.transcript.json`;
 }
 
 /** Build S3 key for raw transcript (txt fallback) */
 export function rawTranscriptTxtKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.transcription.txt`;
+  return `video-review/${videoId}/ai/${stem}.transcript.txt`;
 }
 
 /** Build S3 key for analysis */
