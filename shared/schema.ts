@@ -33,26 +33,57 @@ export type TranscriptMeta = z.infer<typeof TranscriptMetaSchema>;
 
 // ─── Analysis ─────────────────────────────────────────────────────────────────
 
-export const AnalysisSegmentSchema = z.object({
-  speaker_id: z.string(),
-  summary: z.string(),
-  sentiment: z.enum(["positive", "neutral", "negative"]).optional(),
-  key_phrases: z.array(z.string()).optional(),
+// ─── Analysis-v2 schema (matches backend analyze_transcript_azure_openai output) ──
+
+export const EvidenceSchema = z.object({
+  phrase_index: z.number().optional(),
+  quote: z.string().optional(),
   start_ms: z.number().optional(),
   end_ms: z.number().optional(),
+  speaker_id: z.string().optional(),
+});
+
+export const SkillSchema = z.object({
+  skill_name: z.string(),
+  description: z.string().optional(),
+  score: z.number().optional(),
+  max_score: z.number().optional(),
+  evidence: EvidenceSchema.optional(),
+});
+
+export const ImprovementSchema = z.object({
+  issue: z.string(),
+  suggestion: z.string().optional(),
+  evidence: EvidenceSchema.optional(),
+});
+
+export const ProfessionalEvaluationSchema = z.object({
+  overall_performance: z.string().optional(),
+  skills_demonstrated: z.array(SkillSchema).optional(),
+  areas_for_improvement: z.array(ImprovementSchema).optional(),
+  action_items: z.array(z.string()).optional(),
 });
 
 export const AnalysisSchema = z.object({
+  version: z.string().optional(),
   video_id: z.string().optional(),
   stem: z.string().optional(),
   generated_at: z.string().optional(),
+  professional_evaluation: ProfessionalEvaluationSchema.optional(),
+  source: z.record(z.unknown()).optional(),
+  model: z.record(z.unknown()).optional(),
+  // Legacy / fallback fields
   overall_summary: z.string().optional(),
-  segments: z.array(AnalysisSegmentSchema).optional(),
-  raw: z.record(z.unknown()).optional(), // catch-all for any extra fields
+  segments: z.array(z.record(z.unknown())).optional(),
 });
 
+export type Evidence = z.infer<typeof EvidenceSchema>;
+export type Skill = z.infer<typeof SkillSchema>;
+export type Improvement = z.infer<typeof ImprovementSchema>;
+export type ProfessionalEvaluation = z.infer<typeof ProfessionalEvaluationSchema>;
 export type Analysis = z.infer<typeof AnalysisSchema>;
-export type AnalysisSegment = z.infer<typeof AnalysisSegmentSchema>;
+// Keep for backwards compat
+export type AnalysisSegment = { speaker_id: string; summary: string };
 
 // ─── API Payloads ─────────────────────────────────────────────────────────────
 
@@ -106,14 +137,14 @@ export function rawTranscriptTxtKey(videoId: string, stem: string): string {
   return `video-review/${videoId}/ai/${stem}.transcript.txt`;
 }
 
-/** Build S3 key for analysis */
+/** Build S3 key for analysis (raw — note: legacy bucket files use the 'anslysis' typo) */
 export function rawAnalysisKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.anslysis.json`;
+  return `video-review/${videoId}/ai/${stem}.anslysis.json`; // typo preserved from real S3 files
 }
 
-/** Build S3 key for analysis (edited) */
+/** Build S3 key for analysis produced by the re-analysis worker (correct spelling) */
 export function editedAnalysisKey(videoId: string, stem: string): string {
-  return `video-review/${videoId}/ai/${stem}.anslysis.edited.json`;
+  return `video-review/${videoId}/ai/${stem}.analysis.edited.json`; // worker uses correct spelling
 }
 
 /** Build S3 key for raw video — tries <stem>.mp4 under raw/ */
