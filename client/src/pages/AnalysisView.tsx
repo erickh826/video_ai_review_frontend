@@ -28,6 +28,7 @@ import {
   formatTime,
 } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { toTraditional } from "@/lib/toTraditional";
 
 const DEFAULT_BUCKET = import.meta.env.VITE_S3_BUCKET || "";
 
@@ -166,7 +167,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               整體表現
             </h2>
-            <p className="text-sm leading-relaxed text-foreground">{eval_.overall_performance}</p>
+            <p className="text-sm leading-relaxed text-foreground">{toTraditional(eval_.overall_performance)}</p>
           </div>
         )}
 
@@ -211,7 +212,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
               {eval_.action_items.map((item, i) => (
                 <li key={i} className="flex gap-2 text-sm text-foreground">
                   <span className="text-muted-foreground font-mono text-xs mt-0.5 w-4 shrink-0">{i + 1}.</span>
-                  <span>{item}</span>
+                  <span>{toTraditional(item)}</span>
                 </li>
               ))}
             </ol>
@@ -229,7 +230,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             摘要
           </h2>
-          <p className="text-sm leading-relaxed">{data.overall_summary}</p>
+          <p className="text-sm leading-relaxed">{toTraditional(data.overall_summary)}</p>
         </div>
       )}
       <div>
@@ -259,7 +260,7 @@ function SkillCard({ skill, index }: { skill: Skill; index: number }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Star className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
-          <span className="text-sm font-medium text-foreground">{skill.skill_name}</span>
+          <span className="text-sm font-medium text-foreground">{toTraditional(skill.skill_name)}</span>
         </div>
         {score !== null && (
           <Badge variant="secondary" className="text-xs font-mono shrink-0">
@@ -273,7 +274,7 @@ function SkillCard({ skill, index }: { skill: Skill; index: number }) {
       )}
 
       {skill.description && (
-        <p className="text-xs leading-relaxed text-muted-foreground">{skill.description}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{toTraditional(skill.description)}</p>
       )}
 
       {skill.evidence?.quote && (
@@ -297,13 +298,13 @@ function ImprovementCard({ item, index }: { item: Improvement; index: number }) 
     >
       <div className="flex items-start gap-2">
         <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0 mt-0.5" />
-        <span className="text-sm font-medium text-foreground">{item.issue}</span>
+        <span className="text-sm font-medium text-foreground">{toTraditional(item.issue)}</span>
       </div>
 
       {item.suggestion && (
         <div className="flex items-start gap-2 pl-5">
           <Lightbulb className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-xs leading-relaxed text-muted-foreground">{item.suggestion}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{toTraditional(item.suggestion)}</p>
         </div>
       )}
 
@@ -331,7 +332,7 @@ function EvidenceQuote({
 }) {
   return (
     <blockquote className="border-l-2 border-border pl-3 ml-1">
-      <p className="text-xs italic text-muted-foreground leading-relaxed">「{quote}」</p>
+      <p className="text-xs italic text-muted-foreground leading-relaxed">「{toTraditional(quote)}」</p>
       {(startMs !== undefined || endMs !== undefined) && (
         <p className="text-xs font-mono text-muted-foreground/60 mt-1">
           {startMs !== undefined ? formatTime(startMs) : "?"}

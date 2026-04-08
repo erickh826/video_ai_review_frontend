@@ -39,6 +39,7 @@ import {
   rawAnalysisKey,
 } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { toTraditional } from "@/lib/toTraditional";
 
 const DEFAULT_BUCKET = import.meta.env.VITE_S3_BUCKET || "";
 const SPEAKERS = ["Guest-1", "Guest-2", "Guest-3", "Guest-4", "Host"];
@@ -141,6 +142,7 @@ export default function TranscriptEditor() {
       ...p,
       id: p.id || `phrase-${i}`,
       speaker_id_raw: p.speaker_id_raw || p.speaker_id,
+      text: toTraditional(p.text), // display in Traditional Chinese
     }));
     setPhrases(loaded);
   }, [transcriptQuery.data]);
