@@ -224,7 +224,7 @@ export default function TranscriptEditor() {
       if (!putRes.ok) throw new Error("S3 upload failed");
 
       setSaveStatus("saved");
-      toast({ title: "Saved to S3", description: key });
+      toast({ title: "已儲存至 S3", description: key });
 
       // 3. Trigger analysis
       setAnalysisStatus("queued");
@@ -232,11 +232,11 @@ export default function TranscriptEditor() {
       const triggerData = await triggerRes.json();
       if (!triggerRes.ok) throw new Error(triggerData.error);
 
-      toast({ title: "Analysis queued", description: `messageId: ${triggerData.messageId}` });
+      toast({ title: "分析已排入佇列", description: `messageId: ${triggerData.messageId}` });
       startPolling();
     } catch (err: any) {
       setSaveStatus("error");
-      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+      toast({ title: "儲存失敗", description: err.message, variant: "destructive" });
     }
   }, [bucket, videoId, stem, phrases, toast]);
 
@@ -249,7 +249,7 @@ export default function TranscriptEditor() {
       pollCountRef.current++;
       if (pollCountRef.current > 40) {
         setAnalysisStatus("timeout");
-        toast({ title: "Analysis timeout", description: "Please refresh later" });
+        toast({ title: "分析逾時", description: "請稍後重新整理" });
         return;
       }
       try {
@@ -257,7 +257,7 @@ export default function TranscriptEditor() {
         const res = await fetch(url);
         if (res.ok) {
           setAnalysisStatus("done");
-          toast({ title: "Analysis ready", description: "View results in the Analysis tab" });
+          toast({ title: "分析完成", description: "可在分析頁查看結果" });
           return;
         }
       } catch {
@@ -353,15 +353,15 @@ export default function TranscriptEditor() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-muted/50 rounded-md px-3 py-2">
-                <div className="text-muted-foreground">Phrases</div>
+                <div className="text-muted-foreground">句數</div>
                 <div className="font-semibold text-foreground text-sm" data-testid="text-phrase-count">{phrases.length}</div>
               </div>
               <div className="bg-muted/50 rounded-md px-3 py-2">
-                <div className="text-muted-foreground">Suspects</div>
+                <div className="text-muted-foreground">疑似錯誤</div>
                 <div className="font-semibold text-destructive text-sm" data-testid="text-suspect-count">{suspectCount}</div>
               </div>
               <div className="bg-muted/50 rounded-md px-3 py-2 col-span-2">
-                <div className="text-muted-foreground mb-1">Speakers</div>
+                <div className="text-muted-foreground mb-1">說話者</div>
                 <div className="flex flex-wrap gap-1">
                   {allSpeakers.map((s) => (
                     <SpeakerBadge key={s} speaker={s} />
@@ -375,7 +375,7 @@ export default function TranscriptEditor() {
             {/* Save panel */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Save & Analysis</span>
+                <span className="text-xs font-medium text-muted-foreground">儲存並重新分析</span>
                 {analysisStatus === "done" && (
                   <Link href={`/videos/${videoId}/${stem}/analysis`}>
                     <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-primary">
@@ -408,7 +408,7 @@ export default function TranscriptEditor() {
             <Link href={`/videos/${videoId}/${stem}/analysis`}>
               <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
                 <BarChart2 className="h-3.5 w-3.5" />
-                View Analysis
+                查看分析
               </Button>
             </Link>
           </div>
@@ -441,14 +441,14 @@ export default function TranscriptEditor() {
                       speaker_id_raw: p.speaker_id_raw || p.speaker_id,
                     }));
                     setPhrases(loaded);
-                    toast({ title: "Transcript reset" });
+                    toast({ title: "逐字稿已重置" });
                   }
                 }}
                 className="gap-1.5 text-xs text-muted-foreground"
                 data-testid="button-reset"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Reset
+                重置
               </Button>
             </div>
           </div>
@@ -466,7 +466,7 @@ export default function TranscriptEditor() {
             {transcriptQuery.isError && (
               <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
                 <AlertTriangle className="h-6 w-6 text-destructive/60" />
-                <p className="text-sm">Could not load transcript</p>
+                <p className="text-sm">無法載入逐字稿</p>
                 <p className="text-xs">{(transcriptQuery.error as Error)?.message}</p>
               </div>
             )}
@@ -561,7 +561,7 @@ export default function TranscriptEditor() {
           </div>
           <ScrollArea className="flex-1 p-4">
             {allSpeakers.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Load a transcript to see speakers</p>
+              <p className="text-xs text-muted-foreground">載入逐字稿後可查看說話者</p>
             ) : (
               <div className="space-y-3">
                 {allSpeakers.map((speaker) => {
@@ -585,7 +585,7 @@ export default function TranscriptEditor() {
                         />
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {speakerPhrases.length} phrases · {formatTime(totalMs)}
+                        {speakerPhrases.length} 句 · {formatTime(totalMs)}
                       </p>
                     </div>
                   );
@@ -629,10 +629,10 @@ function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
 
   const config: Record<AnalysisStatus, { label: string; color: string }> = {
     idle: { label: "", color: "" },
-    queued: { label: "Queued", color: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20" },
-    polling: { label: "Processing…", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" },
-    done: { label: "Analysis ready", color: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20" },
-    timeout: { label: "Timed out — refresh later", color: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20" },
+    queued: { label: "排隊中", color: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20" },
+    polling: { label: "處理中…", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" },
+    done: { label: "分析完成", color: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20" },
+    timeout: { label: "逾時 — 請稍後重新整理", color: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20" },
   };
 
   const { label, color } = config[status];

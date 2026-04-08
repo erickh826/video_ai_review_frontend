@@ -76,17 +76,17 @@ export default function AnalysisView() {
             <Link href={`/videos/${videoId}/${stem}`}>
               <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
                 <ArrowLeft className="h-4 w-4" />
-                Transcript
+                逐字稿
               </Button>
             </Link>
             <Separator orientation="vertical" className="h-5" />
-            <h1 className="text-sm font-semibold text-foreground">Analysis Results</h1>
+            <h1 className="text-sm font-semibold text-foreground">分析結果</h1>
             <span className="text-xs text-muted-foreground truncate">{stem}</span>
             <div className="ml-auto flex items-center gap-2">
               {/* Show spinner when auto-polling */}
               {!analysisQuery.data && !analysisQuery.isError && (
                 <span className="text-xs text-muted-foreground animate-pulse">
-                  Waiting for analysis…
+                  分析處理中…
                 </span>
               )}
               <Button
@@ -98,7 +98,7 @@ export default function AnalysisView() {
                 data-testid="button-refresh-analysis"
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", analysisQuery.isFetching && "animate-spin")} />
-                Refresh
+                重新整理
               </Button>
             </div>
           </div>
@@ -117,18 +117,18 @@ export default function AnalysisView() {
                 <AlertTriangle className="h-8 w-8 text-yellow-500/70" />
                 <p className="text-sm font-medium">
                   {(analysisQuery.error as Error)?.message === "Analysis not generated yet"
-                    ? "Analysis hasn't been generated yet"
-                    : "Failed to load analysis"}
+                    ? "分析尚未生成"
+                    : "無法載入分析結果"}
                 </p>
                 <p className="text-xs text-center max-w-xs">
                   {(analysisQuery.error as Error)?.message === "Analysis not generated yet"
-                    ? "Go back to the Transcript editor and click \"Save & Run Analysis\""
+                    ? "請返回逐字稿編輯頁，點擊「儲存並重新分析」"
                     : (analysisQuery.error as Error)?.message}
                 </p>
                 <Link href={`/videos/${videoId}/${stem}`}>
                   <Button variant="outline" size="sm" className="gap-1.5 mt-2">
                     <FileText className="h-4 w-4" />
-                    Go to Transcript Editor
+                    前往逐字稿編輯
                   </Button>
                 </Link>
               </div>
@@ -156,7 +156,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
         {/* Meta */}
         {data.generated_at && (
           <p className="text-xs text-muted-foreground">
-            Generated: {new Date(data.generated_at).toLocaleString()}
+            生成時間：{new Date(data.generated_at).toLocaleString('zh-HK')}
           </p>
         )}
 
@@ -164,7 +164,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
         {eval_.overall_performance && (
           <div className="bg-card border border-border rounded-lg p-5">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Overall Performance
+              整體表現
             </h2>
             <p className="text-sm leading-relaxed text-foreground">{eval_.overall_performance}</p>
           </div>
@@ -175,7 +175,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
               <TrendingUp className="h-3.5 w-3.5 text-green-500" />
-              Skills Demonstrated ({eval_.skills_demonstrated.length})
+              展現的技巧（{eval_.skills_demonstrated.length}）
             </h2>
             <div className="space-y-3">
               {eval_.skills_demonstrated.map((skill, i) => (
@@ -190,7 +190,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
               <TrendingDown className="h-3.5 w-3.5 text-yellow-500" />
-              Areas for Improvement ({eval_.areas_for_improvement.length})
+              需改善的地方（{eval_.areas_for_improvement.length}）
             </h2>
             <div className="space-y-3">
               {eval_.areas_for_improvement.map((item, i) => (
@@ -205,7 +205,7 @@ function AnalysisContent({ data }: { data: Analysis }) {
           <div className="bg-card border border-border rounded-lg p-5">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
-              Action Items
+              行動項目
             </h2>
             <ol className="space-y-2">
               {eval_.action_items.map((item, i) => (
@@ -227,14 +227,14 @@ function AnalysisContent({ data }: { data: Analysis }) {
       {data.overall_summary && (
         <div className="bg-card border border-border rounded-lg p-5">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Summary
+            摘要
           </h2>
           <p className="text-sm leading-relaxed">{data.overall_summary}</p>
         </div>
       )}
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Raw Output
+          原始輸出
         </h2>
         <pre className="bg-muted/50 rounded-lg p-4 text-xs overflow-auto max-h-96 text-muted-foreground">
           {JSON.stringify(data, null, 2)}

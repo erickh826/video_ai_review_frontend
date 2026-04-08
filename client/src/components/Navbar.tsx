@@ -29,7 +29,7 @@ export function Navbar({ videoId, stem }: NavbarProps) {
             <circle cx="8" cy="10" r="2" fill="white" opacity="0.9" />
             <path d="M12 8l-2 4h4l-2-4z" fill="white" opacity="0.5" />
           </svg>
-          <span className="hidden sm:inline">Video AI Review</span>
+          <span className="hidden sm:inline">影片 AI 評閱</span>
         </Link>
 
         {/* Breadcrumb */}
@@ -61,7 +61,7 @@ export function Navbar({ videoId, stem }: NavbarProps) {
           <Link href="/health">
             <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" data-testid="button-health">
               <Activity className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Health</span>
+              <span className="hidden sm:inline text-xs">狀態</span>
             </Button>
           </Link>
           <Button
