@@ -279,7 +279,7 @@ export default function TranscriptEditor() {
       if (!triggerRes.ok) throw new Error(triggerData.error);
 
       toast({ title: "分析已排入佇列", description: `messageId: ${triggerData.messageId}` });
-      startPolling();
+      startPolling(Date.now());
     } catch (err: any) {
       setSaveStatus("error");
       toast({ title: "儲存失敗", description: err.message, variant: "destructive" });
@@ -287,7 +287,7 @@ export default function TranscriptEditor() {
   }, [bucket, videoId, stem, phrases, toast]);
 
   // ── Polling for analysis ──────────────────────────────────────────────────
-  const startPolling = useCallback(() => {
+  const startPolling = useCallback((triggeredAt: number) => {
     setAnalysisStatus("polling");
     pollCountRef.current = 0;
 
@@ -302,11 +302,18 @@ export default function TranscriptEditor() {
         const url = await presignDownload(bucket, editedAnalysisKey(videoId!, stem!));
         const res = await fetch(url);
         if (res.ok) {
-          setAnalysisStatus("done");
-          // Invalidate analysis cache so AnalysisView shows new results without manual refresh
-          queryClient.invalidateQueries({ queryKey: ["/api/presign-download", videoId, stem, "analysis"] });
-          toast({ title: "分析完成", description: "可在分析頁查看結果" });
-          return;
+          const data = await res.json();
+          const generatedAt = data?.generated_at
+            ? new Date(data.generated_at).getTime()
+            : 0;
+          // Only mark done if this analysis was generated AFTER we triggered it
+          if (generatedAt >= triggeredAt) {
+            setAnalysisStatus("done");
+            queryClient.invalidateQueries({ queryKey: ["/api/presign-download", videoId, stem, "analysis"] });
+            toast({ title: "分析完成", description: "可在分析頁查看結果" });
+            return;
+          }
+          // File exists but is the old version — keep waiting
         }
       } catch {
         // 404 = not ready yet
@@ -314,7 +321,7 @@ export default function TranscriptEditor() {
       pollTimerRef.current = setTimeout(poll, 4000);
     };
     poll();
-  }, [bucket, videoId, stem, toast]);
+  }, [bucket, videoId, stem, toast, queryClient]);
 
   // Cleanup
   useEffect(() => {
