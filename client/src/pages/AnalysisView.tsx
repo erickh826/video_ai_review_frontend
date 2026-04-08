@@ -62,8 +62,9 @@ export default function AnalysisView() {
     },
     enabled: !!videoId && !!stem && bucket !== "—",
     retry: false,
-    // Auto-refetch every 5s while no data yet (background polling)
-    refetchInterval: (query) => (query.state.data ? false : 5000),
+    staleTime: 0,              // always consider data stale
+    refetchOnWindowFocus: true, // re-fetch when user switches back to this tab
+    refetchOnMount: "always",  // re-fetch every time this page mounts / remounts
   });
 
   return (
