@@ -15,6 +15,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Save,
@@ -95,6 +102,7 @@ export default function TranscriptEditor() {
   const [showSuspectOnly, setShowSuspectOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
   const [splitModal, setSplitModal] = useState<{ phraseIdx: number; splitAt: number | null } | null>(null);
+  const [professionalSpeaker, setProfessionalSpeaker] = useState<string>("Guest-1");
   const queryClient = useQueryClient();
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -157,6 +165,9 @@ export default function TranscriptEditor() {
       text: toTraditional(p.text), // display in Traditional Chinese
     }));
     setPhrases(loaded);
+    // Pre-fill professional speaker from transcript metadata if available
+    const profId = transcriptQuery.data.professional_speaker_id;
+    if (profId) setProfessionalSpeaker(profId);
   }, [transcriptQuery.data]);
 
   // ── Click-to-play ─────────────────────────────────────────────────────────
@@ -234,6 +245,7 @@ export default function TranscriptEditor() {
     setSaveStatus("saving");
     const key = editedTranscriptKey(videoId, stem);
 
+    const clientSpeakers = allSpeakers.filter((s) => s !== professionalSpeaker);
     const editedTranscript = {
       meta: {
         edited: true,
@@ -241,6 +253,8 @@ export default function TranscriptEditor() {
         edited_by: "web_ui",
         edit_source: "web_ui",
       },
+      professional_speaker_id: professionalSpeaker,
+      client_speaker_ids: clientSpeakers,
       phrases,
     };
 
@@ -402,6 +416,31 @@ export default function TranscriptEditor() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            <Separator />
+
+            {/* Professional speaker selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                專業人士
+                <span className="text-[10px] text-muted-foreground/60">（被評核者）</span>
+              </label>
+              <Select
+                value={professionalSpeaker}
+                onValueChange={setProfessionalSpeaker}
+              >
+                <SelectTrigger className="h-8 text-xs" data-testid="select-professional-speaker">
+                  <SelectValue placeholder="選擇說話者" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(allSpeakers.length > 0 ? allSpeakers : SPEAKERS).map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />

@@ -25,6 +25,8 @@ export const TranscriptMetaSchema = z.object({
 
 export const TranscriptSchema = z.object({
   meta: TranscriptMetaSchema.optional(),
+  professional_speaker_id: z.string().optional(),
+  client_speaker_ids: z.array(z.string()).optional(),
   phrases: z.array(PhraseSchema),
 });
 
