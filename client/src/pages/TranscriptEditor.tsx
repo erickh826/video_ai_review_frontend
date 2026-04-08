@@ -26,7 +26,15 @@ import {
   Loader2,
   CheckCircle2,
   BarChart2,
+  Scissors,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   type Phrase,
   type Transcript,
@@ -84,6 +92,7 @@ export default function TranscriptEditor() {
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [showSuspectOnly, setShowSuspectOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [splitModal, setSplitModal] = useState<{ phraseIdx: number; splitAt: number | null } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -491,7 +500,7 @@ export default function TranscriptEditor() {
                   data-testid={`row-phrase-${phrase.id}`}
                   onClick={() => playPhrase(realIdx)}
                   className={cn(
-                    "transcript-row",
+                    "transcript-row group/row",
                     isActive && "active",
                     suspect && "suspect"
                   )}
@@ -533,6 +542,19 @@ export default function TranscriptEditor() {
                       <AlertTriangle className="shrink-0 h-3 w-3 mt-1 text-destructive/60" />
                     )}
                   </div>
+
+                  {/* Split button — visible on row hover */}
+                  <button
+                    data-testid={`button-split-${phrase.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSplitModal({ phraseIdx: realIdx, splitAt: null });
+                    }}
+                    title="分拆句子"
+                    className="shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                  >
+                    <Scissors className="h-3 w-3" />
+                  </button>
 
                   {/* Time */}
                   <span className="time-label">{formatTime(phrase.offset_ms)}</span>
@@ -598,6 +620,48 @@ export default function TranscriptEditor() {
         </aside>
       </div>
 
+      {/* Split modal */}
+      {splitModal && (
+        <SplitModal
+          phrase={phrases[splitModal.phraseIdx]}
+          onConfirm={(splitAt) => {
+            const idx = splitModal.phraseIdx;
+            const original = phrases[idx];
+            const textA = original.text.slice(0, splitAt).trim();
+            const textB = original.text.slice(splitAt).trim();
+            if (!textA || !textB) return;
+
+            // Split duration proportionally by character count
+            const ratio = textA.length / original.text.length;
+            const durA = Math.round(original.duration_ms * ratio);
+            const durB = original.duration_ms - durA;
+
+            const phraseA: Phrase = {
+              ...original,
+              id: `${original.id}-a`,
+              text: textA,
+              duration_ms: durA,
+            };
+            const phraseB: Phrase = {
+              ...original,
+              id: `${original.id}-b`,
+              text: textB,
+              offset_ms: original.offset_ms + durA,
+              duration_ms: durB,
+            };
+
+            setPhrases((prev) => [
+              ...prev.slice(0, idx),
+              phraseA,
+              phraseB,
+              ...prev.slice(idx + 1),
+            ]);
+            setSplitModal(null);
+          }}
+          onClose={() => setSplitModal(null)}
+        />
+      )}
+
       {/* Context menu */}
       {contextMenu && (
         <div
@@ -646,5 +710,111 @@ function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
       {status === "done" && <CheckCircle2 className="h-3 w-3 shrink-0" />}
       {label}
     </div>
+  );
+}
+
+// ─── Split Modal ──────────────────────────────────────────────────────────────
+
+function SplitModal({
+  phrase,
+  onConfirm,
+  onClose,
+}: {
+  phrase: Phrase;
+  onConfirm: (splitAt: number) => void;
+  onClose: () => void;
+}) {
+  const [splitAt, setSplitAt] = useState<number | null>(null);
+  const text = phrase.text;
+
+  // Build word-level tokens so user can click between words
+  // For CJK text every character is a token; for Latin we split by space
+  const chars = text.split(""); // character array
+
+  const preview =
+    splitAt !== null
+      ? { before: text.slice(0, splitAt).trim(), after: text.slice(splitAt).trim() }
+      : null;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Scissors className="h-4 w-4" />
+            分拆句子
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Instruction */}
+          <p className="text-xs text-muted-foreground">
+            點擊分割點（字與字之間），句子會拆成兩句。分拆後可分別設定說話者。
+          </p>
+
+          {/* Character-by-character clickable text */}
+          <div className="bg-muted/40 rounded-lg p-4 leading-loose text-sm select-none font-medium">
+            {chars.map((ch, i) => (
+              <span key={i} className="relative inline-block">
+                {/* Clickable split point BEFORE this char */}
+                <button
+                  onClick={() => setSplitAt(i)}
+                  className={cn(
+                    "absolute left-0 top-0 bottom-0 w-1 -translate-x-1 z-10 cursor-col-resize hover:bg-primary/40 rounded",
+                    splitAt === i ? "bg-primary w-0.5" : "bg-transparent"
+                  )}
+                  title={`分割於第 ${i + 1} 字前`}
+                />
+                <span
+                  className={cn(
+                    "px-px",
+                    splitAt !== null && i < splitAt
+                      ? "text-foreground"
+                      : splitAt !== null
+                      ? "text-muted-foreground"
+                      : ""
+                  )}
+                >
+                  {ch}
+                </span>
+              </span>
+            ))}
+          </div>
+
+          {/* Preview */}
+          {preview ? (
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-card border border-border rounded-md p-3 space-y-1">
+                <p className="text-muted-foreground font-medium">句子 A ({phrase.speaker_id})</p>
+                <p className="text-foreground leading-relaxed">{preview.before || "—"}</p>
+              </div>
+              <div className="bg-card border border-border rounded-md p-3 space-y-1">
+                <p className="text-muted-foreground font-medium">句子 B ({phrase.speaker_id})</p>
+                <p className="text-foreground leading-relaxed">{preview.after || "—"}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">
+              尚未選擇分割點
+            </p>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            取消
+          </Button>
+          <Button
+            size="sm"
+            disabled={splitAt === null || !preview?.before || !preview?.after}
+            onClick={() => splitAt !== null && onConfirm(splitAt)}
+            className="gap-1.5"
+          >
+            <Scissors className="h-3.5 w-3.5" />
+            確認分拆
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
