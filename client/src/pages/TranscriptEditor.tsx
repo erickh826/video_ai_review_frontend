@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, Link } from "wouter";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
@@ -27,6 +27,8 @@ import {
   CheckCircle2,
   BarChart2,
   Scissors,
+  Trash2,
+  MergeIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -93,6 +95,7 @@ export default function TranscriptEditor() {
   const [showSuspectOnly, setShowSuspectOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
   const [splitModal, setSplitModal] = useState<{ phraseIdx: number; splitAt: number | null } | null>(null);
+  const queryClient = useQueryClient();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -195,6 +198,24 @@ export default function TranscriptEditor() {
     });
   }, []);
 
+  const deletePhrase = useCallback((idx: number) => {
+    setPhrases((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const mergeWithPrev = useCallback((idx: number) => {
+    if (idx === 0) return;
+    setPhrases((prev) => {
+      const next = [...prev];
+      const merged: Phrase = {
+        ...next[idx - 1],
+        text: next[idx - 1].text + next[idx].text,
+        duration_ms: next[idx - 1].duration_ms + next[idx].duration_ms,
+      };
+      next.splice(idx - 1, 2, merged);
+      return next;
+    });
+  }, []);
+
   const setSpeaker = useCallback((idx: number, speaker: string) => {
     setPhrases((prev) => {
       const next = [...prev];
@@ -268,6 +289,8 @@ export default function TranscriptEditor() {
         const res = await fetch(url);
         if (res.ok) {
           setAnalysisStatus("done");
+          // Invalidate analysis cache so AnalysisView shows new results without manual refresh
+          queryClient.invalidateQueries({ queryKey: ["/api/presign-download", videoId, stem, "analysis"] });
           toast({ title: "分析完成", description: "可在分析頁查看結果" });
           return;
         }
@@ -543,18 +566,38 @@ export default function TranscriptEditor() {
                     )}
                   </div>
 
-                  {/* Split button — visible on row hover */}
-                  <button
-                    data-testid={`button-split-${phrase.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSplitModal({ phraseIdx: realIdx, splitAt: null });
-                    }}
-                    title="分拆句子"
-                    className="shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                  >
-                    <Scissors className="h-3 w-3" />
-                  </button>
+                  {/* Row action buttons — visible on hover */}
+                  <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                    {/* Merge with previous */}
+                    {realIdx > 0 && (
+                      <button
+                        data-testid={`button-merge-${phrase.id}`}
+                        onClick={(e) => { e.stopPropagation(); mergeWithPrev(realIdx); }}
+                        title="和上一句合並"
+                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                      >
+                        <MergeIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                    {/* Split */}
+                    <button
+                      data-testid={`button-split-${phrase.id}`}
+                      onClick={(e) => { e.stopPropagation(); setSplitModal({ phraseIdx: realIdx, splitAt: null }); }}
+                      title="分拆句子"
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                    >
+                      <Scissors className="h-3 w-3" />
+                    </button>
+                    {/* Delete */}
+                    <button
+                      data-testid={`button-delete-${phrase.id}`}
+                      onClick={(e) => { e.stopPropagation(); deletePhrase(realIdx); }}
+                      title="刪除此句"
+                      className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
 
                   {/* Time */}
                   <span className="time-label">{formatTime(phrase.offset_ms)}</span>
