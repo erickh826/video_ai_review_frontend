@@ -305,7 +305,7 @@ export default function TranscriptEditor() {
           const data = await res.json();
           const generatedAt = data?.generated_at
             ? new Date(data.generated_at).getTime()
-            : 0;
+            : Infinity; // no generated_at = legacy file, treat as always fresh
           // Only mark done if this analysis was generated AFTER we triggered it
           if (generatedAt >= triggeredAt) {
             setAnalysisStatus("done");
